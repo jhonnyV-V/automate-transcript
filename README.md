@@ -1,0 +1,1 @@
+install requirements and run pip install -U openai-whisper and ffmpeg
