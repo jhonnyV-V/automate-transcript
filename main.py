@@ -73,15 +73,19 @@ def transcribe(
   model: str,
   translate: bool = False,
   target_lang: str = "es",
+  gpu: bool = False,
 ):
   file = formatPath(file)
   output_dir = formatPath(output_dir)
   output = ""
+  useGpu = ""
+  if (gpu):
+      useGpu = " --device cuda"
   if (translate):
     output = output_dir
     output_dir = tempfile.mkdtemp()
   subprocess.run(
-    f"whisper {file} --model {model} --language {src_lang} --output_dir {output_dir} --output_format srt",
+    f"python -m whisper {file} --model {model} --language {src_lang} --output_dir {output_dir} --output_format srt{useGpu}",
     shell=True
   )
   if (translate):
@@ -118,6 +122,7 @@ def sample_func(
   model: str = "tiny",
   translate: bool = False,
   target_lang: str = "es",
+  gpu: bool = False,
 ):
   print("start")
   print(file)
@@ -129,6 +134,7 @@ def sample_func(
     model=model,
     translate=translate,
     target_lang=target_lang,
+    gpu=gpu,
   )
   print("end")
 
@@ -167,6 +173,7 @@ def transcribe_subs(
   model: str = "tiny",
   translate: bool = False,
   target_lang: str = "es",
+  gpu: bool = False,
 ):
   srt_dir = tempfile.mkdtemp()
   transcribe(
@@ -175,7 +182,8 @@ def transcribe_subs(
     src_lang=src_lang,
     model=model,
     translate=translate,
-    target_lang=target_lang
+    target_lang=target_lang, 
+    gpu=gpu,
   )
   print(srt_dir)
   print(listdir(srt_dir))
