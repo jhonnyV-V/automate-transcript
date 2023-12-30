@@ -1,5 +1,6 @@
 import subprocess
 from platform import system
+from pathlib import Path
 from os import listdir
 import tempfile
 import typer
@@ -14,14 +15,9 @@ isLinux = system() == "Linux"
 
 def formatPath(path):
   if (isLinux):
-    return path.replace(" ", "\\ ")
+    return str(path).replace(" ", "\\ ")
   else:
     return f"\"{path}\""
-  
-def add_trailing_slash(path: str):
-  if (path.endswith("/")):
-    return ""
-  return "/"
 
 def translate_func(
   srt_f: str,
@@ -63,7 +59,10 @@ def translate_func(
     fragment = tokenizer.batch_decode(outputs, skip_special_tokens=True)
     result = result + fragment[0]
   result = result.replace("\n\n\n", "\n\n")
-  with open(output_file, "w") as f:
+  new_file = output_file.replace('"','') 
+  new_file = f"{new_file}"
+    
+  with open(new_file, "w") as f:
     f.write(result.replace("[NL]","\n"))
 
 def transcribe(
@@ -89,10 +88,16 @@ def transcribe(
     shell=True
   )
   if (translate):
+    print(output_dir)
     file_name = listdir(output_dir)[0]
-    output = f"{output}{add_trailing_slash(output)}{file_name}"
+    temp = Path(output)
+    new_file_name = file_name
+    new_file_name = new_file_name.removesuffix('.srt')
+    new_file_name = new_file_name + f'-{target_lang}.srt'
+    output = str(temp / new_file_name)
+    temp = Path(output_dir)
     translate_func(
-      srt_f=f"{output_dir}{add_trailing_slash(output_dir)}{file_name}",
+      srt_f=str(temp / file_name),
       output_file=output,
       src_lang=src_lang,
       target_lang=target_lang,
@@ -103,19 +108,19 @@ def transcribe(
 
 def add_subs(
   video: str,
-  srt_f: str,
-  output_file: str,
+  srt_f: Path,
+  output_file: Path,
 ):
   video = formatPath(video)
-  srt_f = formatPath(srt_f)
-  output_file = formatPath(output_file)
+  srt_f_str = formatPath(srt_f)
+  output_file_str = formatPath(output_file)
   subprocess.run(
-    f"ffmpeg -i {video} -vf subtitles={srt_f} {output_file}",
+    f"ffmpeg -i {video} -vf subtitles={srt_f_str} {output_file_str}",
     shell=True
   )
 
 @app.command("transcribe", options_metavar="translate")
-def sample_func(
+def command_transcribe(
   file: str,
   output_dir: str,
   src_lang: str,
@@ -139,7 +144,7 @@ def sample_func(
   print("end")
 
 @app.command("translate")
-def sample_func(
+def command_translate(
   srt_f: str,
   output_file: str,
   src_lang: str,
@@ -154,19 +159,21 @@ def sample_func(
 
 
 @app.command("add-subs")
-def add_subs_command(
+def command_add_subs(
   video: str,
   srt_f: str,
   output_file: str,
 ):
+  srt_f_path = Path(srt_f)
+  output_file_path = Path(output_file)
   add_subs(
     video=video,
-    srt_f=srt_f,
-    output_file=output_file,
+    srt_f=srt_f_path,
+    output_file=output_file_path,
   )
   
 @app.command("transcribe-to-video")
-def transcribe_subs(
+def command_transcribe_subs(
   file: str,
   output_file: str,
   src_lang: str,
@@ -188,11 +195,12 @@ def transcribe_subs(
   print(srt_dir)
   print(listdir(srt_dir))
   file_name = listdir(srt_dir)[0]
-  srt_f = f"{srt_dir}{add_trailing_slash(srt_dir)}{file_name}"
+  new_path = Path(srt_dir)
+  srt_f = new_path / file_name
   add_subs(
     video=file,
     srt_f=srt_f,
-    output_file=output_file
+    output_file=Path(output_file)
   )
 
 if __name__ == "__main__":
