@@ -3,8 +3,10 @@ from platform import system
 from pathlib import Path
 from os import listdir
 import tempfile
+from utils import whisper_lang_to_seamless_lang
 import typer
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+from seamless_communication.inference import Translator
 
 app = typer.Typer()
 
@@ -12,6 +14,17 @@ MAX_LENGTH = 512
 INPUT_LENGTH = MAX_LENGTH * 3
 
 isLinux = system() == "Linux"
+
+
+model_name = "seamlessM4T_v2_large"
+vocoder_name = "vocoder_v2"
+
+translator = Translator(
+    model_name,
+    vocoder_name,
+    device=torch.device("cuda:0"),
+    dtype=torch.float16,
+)
 
 def formatPath(path):
   if (isLinux):
@@ -25,45 +38,22 @@ def translate_func(
   src_lang: str,
   target_lang: str,
 ):
-  tokenizer = AutoTokenizer.from_pretrained(f"Helsinki-NLP/opus-mt-{src_lang}-{target_lang}")
-  model = AutoModelForSeq2SeqLM.from_pretrained(f"Helsinki-NLP/opus-mt-{src_lang}-{target_lang}")
-
-  tokens = []
-  result = ""
+  file = ""
   with open(srt_f, "r") as f:
-    lines = f.readlines()
-    newInput = ""
-    lines_in_input = 0
-    nlines = len(lines)
-    for line_index in range(1, nlines):
-      lines_in_input += 1
-      line = lines[line_index - 1]
-      fline = line.replace("\n", "[NL]")
-      if (lines_in_input <= 12):
-        newInput += fline
-      if (lines_in_input > 12 or line_index == (nlines - 1)):
-        lines_in_input = 0
-        tokens.append(
-          tokenizer(
-            newInput,
-            return_tensors="pt",
-            additional_special_tokens=["[NL]"],
-            max_length=MAX_LENGTH,
-            truncation=True,
-            padding=True,
-          ).input_ids
-        )
-        newInput = fline
-  for token in tokens:
-    outputs = model.generate(input_ids=token, num_beams=5, num_return_sequences=3)
-    fragment = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-    result = result + fragment[0]
-  result = result.replace("\n\n\n", "\n\n")
+    file = f.read()
+  
+  text_output, _ = translator.predict(
+      input=file,
+      task_str="s2tt",
+      tgt_lang=whisper_lang_to_seamless_lang(target_lang),
+  )
+  print("file", file)
+  print("list", text_output)
   new_file = output_file.replace('"','') 
   new_file = f"{new_file}"
     
   with open(new_file, "w") as f:
-    f.write(result.replace("[NL]","\n"))
+    f.write(text_output)
 
 def transcribe(
   file: str,
@@ -88,7 +78,6 @@ def transcribe(
     shell=True
   )
   if (translate):
-    print(output_dir)
     file_name = listdir(output_dir)[0]
     temp = Path(output)
     new_file_name = file_name

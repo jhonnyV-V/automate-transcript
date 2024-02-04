@@ -1,6 +1,9 @@
 typer==0.9.0
 torch
-transformers
+transformers @ git+https://github.com/huggingface/transformers.git
 sentencepiece
 sacremoses
 openai-whisper
+sentencepiece
+protobuf
+seamless_communication @ git+https://github.com/facebookresearch/seamless_communication.git
